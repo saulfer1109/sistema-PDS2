@@ -20,7 +20,6 @@ interface StudentData {
   records: AcademicRecord[];
 }
 
-
 const SkeletonLoader = () => (
   <div className="animate-pulse space-y-4">
     <div className="h-8 bg-gray-200 rounded w-3/4"></div>
@@ -30,6 +29,9 @@ const SkeletonLoader = () => (
 );
 
 const COLORS = ['#00C49F', '#FF8042'];
+
+// 1. URL BASE DEL SISTEMA DE ALUMNOS (Puerto 3001 o el que se vaya a usar solo se cambia aqui y en el .env)
+const ALUMNOS_FRONTEND_URL = process.env.NEXT_PUBLIC_ALUMNOS_URL || 'http://localhost:3001';
 
 export default function StudentProfilePage() {
   const params = useParams();
@@ -69,6 +71,17 @@ export default function StudentProfilePage() {
 
     fetchStudentData();
   }, [expedienteParam]);
+
+  // 2. redireccion
+  const handleOpenStudentView = () => {
+    if (!studentData) return;
+    
+    // Apuntamos a /kardex pasando el expediente como parámetro
+    const targetUrl = `${ALUMNOS_FRONTEND_URL}/kardex?expediente=${studentData.expediente}`;
+    
+    // Abrimos en nueva pestaña
+    window.open(targetUrl, '_blank');
+  };
 
   const getFilteredData = () => {
     if (!studentData) return [];
@@ -122,16 +135,34 @@ export default function StudentProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Encabezado */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6 flex justify-between items-start">
+        
+        {/* Encabezado con Botones */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{studentData.name}</h1>
             <p className="text-lg text-gray-600">Expediente: {studentData.expediente}</p>
             <p className="text-md text-gray-500">Grupo: {studentData.currentGroup} | Correo: {studentData.email}</p>
           </div>
-          <Link href="/calificaciones/consultar-calificaciones" className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition">
-            ← Nueva Búsqueda
-          </Link>
+          
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            <Link 
+                href="/calificaciones/consultar-calificaciones" 
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition text-center"
+            >
+                ← Nueva Búsqueda
+            </Link>
+            
+            {/* 3. BOTÓN QUE ABRE LA VISTA DE ALUMNO */}
+            <button
+                onClick={handleOpenStudentView}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md transition shadow-sm flex items-center justify-center gap-2"
+            >
+                <span>Consultar Vista de Alumno</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+            </button>
+          </div>
         </div>
 
         {/* Selector de Semestre */}
@@ -141,7 +172,7 @@ export default function StudentProfilePage() {
             id="semester"
             value={selectedSemester}
             onChange={(e) => setSelectedSemester(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
           >
             {getUniqueSemesters().map(sem => (
               <option key={sem} value={sem}>
@@ -168,41 +199,44 @@ export default function StudentProfilePage() {
         </div>
 
         {/* Gráficos */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8 h-80">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Calificaciones por Materia</h2>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={getFilteredData()}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="subject" />
-              <YAxis domain={[0, 100]} /> {/* Calificación en 0-100 */}
-              <Tooltip />
-              <Bar dataKey="grade" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6 h-80">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Calificaciones por Materia</h2>
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={getFilteredData()}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="subject" hide /> 
+                    <YAxis domain={[0, 100]} /> 
+                    <Tooltip />
+                    <Bar dataKey="grade" fill="#3B82F6" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6 h-80">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Distribución de Materias</h2>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                    <Pie
+                        data={countByStatus()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#010008ff"
+                        dataKey="value"
+                    >
+                        {countByStatus().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Pie>
+                    <Tooltip />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 h-80">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Distribución de Materias</h2>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={countByStatus()}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#010008ff"
-                dataKey="value"
-              >
-                {countByStatus().map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
       </div>
     </div>
   );
