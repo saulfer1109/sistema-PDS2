@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model alumno {
+  id                  BigInt                  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  matricula           String                  @unique(map: "uq_alumno_matricula") @db.VarChar(20)
+  expediente          String?                 @unique @db.VarChar(50)
+  nombre              String                  @db.VarChar(100)
+  apellido_paterno    String                  @db.VarChar(100)
+  apellido_materno    String?                 @db.VarChar(100)
+  correo              String                  @db.VarChar(150)
+  estado_academico    alumno_estado_academico @default(ACTIVO)
+  nivel_ingles_actual String?                 @db.VarChar(50)
+  plan_estudio_id     BigInt                  @db.UnsignedBigInt
+  total_creditos      Int                     @default(0)
+  plan_estudio        plan_estudio            @relation(fields: [plan_estudio_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "alumno_ibfk_1")
+  calificacion        calificacion[]
+
+  @@index([nombre, apellido_paterno, apellido_materno], map: "ix_alumno_nombre")
+  @@index([plan_estudio_id], map: "plan_estudio_id")
+}
+
+model grupo {
+  id           BigInt         @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  materia_id   BigInt         @db.UnsignedBigInt
+  periodo_id   BigInt         @db.UnsignedBigInt
+  clave_grupo  String         @db.VarChar(30)
+  cupo         Int
+  calificacion calificacion[]
+  materia      materia        @relation(fields: [materia_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "grupo_ibfk_1")
+  periodo      periodo        @relation(fields: [periodo_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "grupo_ibfk_2")
+
+  @@unique([materia_id, periodo_id, clave_grupo], map: "uq_grupo_periodo_materia_clave")
+  @@index([periodo_id], map: "periodo_id")
+}
+
+model materia {
+  id              BigInt       @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  codigo          String       @unique(map: "uq_materia_codigo") @db.VarChar(20)
+  nombre          String       @db.VarChar(150)
+  creditos        Int
+  tipo            materia_tipo @default(OBLIGATORIA)
+  plan_estudio_id BigInt       @db.UnsignedBigInt
+  grupo           grupo[]
+  plan_estudio    plan_estudio @relation(fields: [plan_estudio_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "materia_ibfk_1")
+
+  @@index([plan_estudio_id], map: "plan_estudio_id")
+}
+
+model periodo {
+  id           BigInt   @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  anio         Int
+  ciclo        Int
+  etiqueta     String   @unique(map: "uq_periodo_etiqueta") @db.VarChar(50)
+  fecha_inicio DateTime @db.Date
+  fecha_fin    DateTime @db.Date
+  grupo        grupo[]
+}
+
+model plan_estudio {
+  id                  BigInt    @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  nombre              String    @db.VarChar(150)
+  version             String    @db.VarChar(50)
+  total_creditos      Int
+  semestres_sugeridos Int
+  alumno              alumno[]
+  materia             materia[]
+}
+
+model profesor {
+  id               BigInt  @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  nombre           String  @db.VarChar(100)
+  apellido_paterno String  @db.VarChar(100)
+  apellido_materno String? @db.VarChar(100)
+  correo           String  @db.VarChar(150)
+  num_empleado     Int     @unique(map: "uq_profesor_num_empleado")
+}
+
+model calificacion {
+  id             BigInt    @id @unique(map: "id") @default(autoincrement()) @db.UnsignedBigInt
+  alumno_id      BigInt    @db.UnsignedBigInt
+  grupo_id       BigInt    @db.UnsignedBigInt
+  calificacion   Decimal   @db.Decimal(3, 1)
+  fecha_registro DateTime? @default(now()) @db.Timestamp(0)
+  alumno         alumno    @relation(fields: [alumno_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "calificacion_ibfk_1")
+  grupo          grupo     @relation(fields: [grupo_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "calificacion_ibfk_2")
+
+  @@unique([alumno_id, grupo_id], map: "uq_calificacion_alumno_grupo")
+  @@index([grupo_id], map: "grupo_id")
+}
+
+enum materia_tipo {
+  OBLIGATORIA
+  OPTATIVA
+}
+
+enum alumno_estado_academico {
+  ACTIVO
+  INACTIVO
+  BAJA
+  EGRESADO
+}
